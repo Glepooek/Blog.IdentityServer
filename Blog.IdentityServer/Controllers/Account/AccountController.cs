@@ -113,7 +113,7 @@ namespace IdentityServer4.Quickstart.UI
                 var user = await _userManager.FindByNameAsync(model.Username);
 
 
-                if (!user.tdIsDelete)
+                if (user != null && !user.tdIsDelete)
                 {
                     var result = await _signInManager.PasswordSignInAsync(model.Username, model.Password, model.RememberLogin, lockoutOnFailure: true);
                     if (result.Succeeded)
@@ -706,6 +706,9 @@ namespace IdentityServer4.Quickstart.UI
 
                 if (userItem != null)
                 {
+                    var oldName = userItem.LoginName;
+                    var oldEmail = userItem.Email;
+
                     userItem.UserName = model.LoginName;
                     userItem.LoginName = model.UserName;
                     userItem.Email = model.Email;
@@ -716,7 +719,37 @@ namespace IdentityServer4.Quickstart.UI
 
                     if (result.Succeeded)
                     {
-                        return RedirectToLocal(returnUrl);
+                        var removeClaimsIdRst = await _userManager.RemoveClaimsAsync(userItem,
+                            new Claim[]{
+                                new Claim(JwtClaimTypes.Name, oldName),
+                                new Claim(JwtClaimTypes.Email, oldEmail),
+                        });
+
+                        if (removeClaimsIdRst.Succeeded)
+                        {
+                            var addClaimsIdRst = await _userManager.AddClaimsAsync(userItem,
+                                new Claim[]{
+                                    new Claim(JwtClaimTypes.Name, userItem.LoginName),
+                                    new Claim(JwtClaimTypes.Email, userItem.Email),
+                            });
+
+                            if (addClaimsIdRst.Succeeded)
+                            {
+                                return RedirectToLocal(returnUrl);
+                            }
+                            else
+                            {
+                                AddErrors(addClaimsIdRst);
+
+                            }
+                        }
+                        else
+                        {
+                            AddErrors(removeClaimsIdRst);
+
+                        }
+
+
                     }
 
                 }
